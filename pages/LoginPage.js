@@ -3,6 +3,8 @@ import { useNavigation } from "@react-navigation/native";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert } from "react-native";
 import { auth } from '../firebaseConfig'; // Importing the initialized auth instance from firebaseConfig
 import { signInWithEmailAndPassword } from "firebase/auth";
+import { db } from "../firebaseConfig";
+import { doc, updateDoc } from "firebase/firestore";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -12,12 +14,38 @@ const LoginPage = () => {
   const handleSignUp = () => {
     navigation.navigate('SignUp')
   }
+
+  const checkEmailVerified = async (user) => {
+    if (user.emailVerified) {
+      // Update Firestore to mark the email as verified
+      try {
+        const userDocRef = doc(db, "userInformation", user.uid);
+        await updateDoc(userDocRef, {
+          emailVerified: true,
+        });
+        console.log("Firestore emailVerified updated to true.");
+      } catch (error) {
+        console.error("Error updating Firestore emailVerified:", error);
+      }
+    } else {
+      Alert.alert("Email not verified", "Please verify your email address.");
+    }
+  };
   
-  async function registerLogin() {
+  async function handleLogin() {
     try {
-      // await createUserWithEmailAndPassword(auth, email, password); //for register ni siya
-      const response = await signInWithEmailAndPassword(auth, email, password);
-      Alert.alert("Login Successful", `Welcome, ${response.user.email}`);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      checkEmailVerified(user);
+  
+      if (!user.emailVerified) {
+        Alert.alert("Email not verified", "Please verify your email address.");
+        return;
+      } // then if the emailVerified the firestore database will also change to true also
+  
+      // Proceed with the rest of the login process
+      // For example, navigate to the home screen after login
       navigation.navigate("Dashboard");
     } catch (error) {
       let errorMessage = "An error occurred. Please try again.";
@@ -54,7 +82,7 @@ const LoginPage = () => {
       />
 
       {/* Login Button */}
-      <TouchableOpacity style={styles.loginButton} onPress={registerLogin}>
+      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
         <Text style={styles.loginButtonText}>Login</Text>
       </TouchableOpacity>
 

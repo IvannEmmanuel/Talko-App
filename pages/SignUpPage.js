@@ -8,52 +8,182 @@ import {
   ScrollView,
   Alert,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Picker } from "@react-native-picker/picker"; // Updated import
+import { Picker } from "@react-native-picker/picker";
 import { auth } from "../firebaseConfig";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+} from "firebase/auth";
 import { db } from "../firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
+import * as ImagePicker from "expo-image-picker";
+
+const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dsgmvinyo/image/upload";
+const CLOUDINARY_UPLOAD_PRESET = "storing_picture";
 
 const SignUpPage = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [username, setUsername] = useState("");
+  const [firstname, setFirstname] = useState("");
+  const [lastname, setLastname] = useState("");
   const [birthday, setBirthday] = useState(new Date());
   const [gender, setGender] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [profilePictureURL, setProfilePictureURL] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleLogin = () => {
     navigation.goBack();
   };
 
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      alert("Permission to access the media library is required!");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const selectedImage = result.assets[0].uri;
+      setProfilePicture(selectedImage);
+      setProfilePictureURL(null); // Reset the Cloudinary URL
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!profilePicture) {
+      alert("Please select an image first!");
+      return false;
+    }
+
+    const formData = new FormData();
+    formData.append("file", {
+      uri: profilePicture,
+      type: "image/jpeg",
+      name: "upload.jpg",
+    });
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    formData.append("folder", "Profile Picture");
+
+    try {
+      setIsUploading(true);
+      const response = await fetch(CLOUDINARY_URL, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const data = await response.json();
+      setIsUploading(false);
+
+      if (data.secure_url) {
+        setProfilePictureURL(data.secure_url);
+        return true;
+      } else {
+        alert("Image upload failed!");
+        return false;
+      }
+    } catch (error) {
+      setIsUploading(false);
+      console.error("Error uploading image:", error);
+      alert("An error occurred while uploading.");
+      return false;
+    }
+  };
+
   const handleSignUp = async () => {
-    if (!email || !password || !phoneNumber || !gender) {
-      Alert.alert("Error", "Please fill out all fields");
+    if (
+      !email ||
+      !password ||
+      !username ||
+      !firstname ||
+      !lastname ||
+      !gender ||
+      !profilePicture
+    ) {
+      Alert.alert(
+        "Error",
+        "Please fill out all fields and select a profile picture"
+      );
       return;
     }
 
     try {
+      setIsUploading(true);
+
+      // Upload image first and get URL
+      const formData = new FormData();
+      formData.append("file", {
+        uri: profilePicture,
+        type: "image/jpeg",
+        name: "upload.jpg",
+      });
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+      // Upload to Cloudinary
+      const uploadResponse = await fetch(CLOUDINARY_URL, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const uploadData = await uploadResponse.json();
+
+      if (!uploadData.secure_url) {
+        setIsUploading(false);
+        Alert.alert("Error", "Failed to upload profile picture");
+        return;
+      }
+
+      // Create user only after successful image upload
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
         password
       );
-      const { uid } = userCredential.user;
+      const user = userCredential.user;
 
-      // Save user information in Firestore
+      await sendEmailVerification(user);
+
+      // Create user document with the Cloudinary URL
       const userInfo = {
         email,
-        phoneNumber,
-        birthday: birthday.toISOString().split("T")[0], // Format as YYYY-MM-DD
+        username,
+        firstname,
+        lastname,
+        birthday: birthday.toISOString().split("T")[0],
         gender,
+        emailVerified: false,
+        profilePictureURL: uploadData.secure_url, // Use URL directly from upload response
       };
 
-      await setDoc(doc(db, "userInformation", uid), userInfo);
-      Alert.alert("Success", "Account created successfully!");
-      navigation.navigate("Dashboard"); // Navigate to HomePage after successful sign-up
+      await setDoc(doc(db, "userInformation", user.uid), userInfo);
+
+      setIsUploading(false);
+      Alert.alert(
+        "Success",
+        "Account created successfully! Please check your email to verify your account.",
+        [{ text: "OK", onPress: () => navigation.navigate("Login") }]
+      );
     } catch (error) {
+      setIsUploading(false);
+      console.error("Error signing up:", error);
       let errorMessage = "An error occurred. Please try again.";
       if (error.code === "auth/email-already-in-use") {
         errorMessage = "This email is already in use.";
@@ -68,12 +198,32 @@ const SignUpPage = ({ navigation }) => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Image
-        source={require("../images/TALKO.png")} // Save the logo file in the `assets` folder
-        style={styles.logo}
+      <Image source={require("../images/TALKO.png")} style={styles.logo} />
+
+      <TextInput
+        placeholder="Username"
+        style={styles.input}
+        value={username}
+        onChangeText={setUsername}
+        autoCapitalize="none"
       />
 
-      {/* Email */}
+      <TextInput
+        placeholder="First Name"
+        style={styles.input}
+        value={firstname}
+        onChangeText={setFirstname}
+        autoCapitalize="words"
+      />
+
+      <TextInput
+        placeholder="Last Name"
+        style={styles.input}
+        value={lastname}
+        onChangeText={setLastname}
+        autoCapitalize="words"
+      />
+
       <TextInput
         placeholder="Email"
         style={styles.input}
@@ -83,7 +233,6 @@ const SignUpPage = ({ navigation }) => {
         autoCapitalize="none"
       />
 
-      {/* Password */}
       <TextInput
         placeholder="Password"
         style={styles.input}
@@ -92,16 +241,6 @@ const SignUpPage = ({ navigation }) => {
         secureTextEntry
       />
 
-      {/* Phone Number */}
-      <TextInput
-        placeholder="Phone Number"
-        style={styles.input}
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
-        keyboardType="phone-pad"
-      />
-
-      {/* Birthday */}
       <TouchableOpacity
         style={styles.datePickerButton}
         onPress={() => setShowDatePicker(true)}
@@ -110,6 +249,7 @@ const SignUpPage = ({ navigation }) => {
           {`Birthday: ${birthday.toISOString().split("T")[0]}`}
         </Text>
       </TouchableOpacity>
+
       {showDatePicker && (
         <DateTimePicker
           value={birthday}
@@ -122,7 +262,6 @@ const SignUpPage = ({ navigation }) => {
         />
       )}
 
-      {/* Gender */}
       <View style={styles.pickerContainer}>
         <Text style={styles.pickerLabel}>Gender:</Text>
         <Picker
@@ -131,28 +270,53 @@ const SignUpPage = ({ navigation }) => {
           style={styles.picker}
         >
           <Picker.Item label="Select Gender" value="" />
-          <Picker.Item label="Male" value="male" />
-          <Picker.Item label="Female" value="female" />
-          <Picker.Item label="Other" value="other" />
+          <Picker.Item label="Male" value="Male" />
+          <Picker.Item label="Female" value="Female" />
+          <Picker.Item label="Other" value="Other" />
         </Picker>
       </View>
 
-      {/* Sign Up Button */}
-      <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
-        <Text style={styles.signUpButtonText}>Sign Up</Text>
+      <TouchableOpacity
+        style={styles.imagePickerButton}
+        onPress={pickImage}
+        disabled={isUploading}
+      >
+        {isUploading ? (
+          <ActivityIndicator size="large" color="#3498db" />
+        ) : profilePicture ? (
+          <Image
+            source={{ uri: profilePicture }}
+            style={styles.profileImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={styles.selectText}>Select Profile Picture</Text>
+        )}
+      </TouchableOpacity>
+
+      {profilePicture && !isUploading && (
+        <Text style={styles.uploadSuccess}>✓ Image selected</Text>
+      )}
+
+      <TouchableOpacity
+        style={[styles.signUpButton, isUploading && styles.disabledButton]}
+        onPress={handleSignUp}
+        disabled={isUploading}
+      >
+        <Text style={styles.signUpButtonText}>
+          {isUploading ? "Uploading..." : "Sign Up"}
+        </Text>
       </TouchableOpacity>
 
       <Text style={styles.signupText}>
         Already have an account?{" "}
         <Text style={styles.signupLink} onPress={handleLogin}>
-          Sign Up
+          Log In
         </Text>
       </Text>
     </ScrollView>
   );
 };
-
-export default SignUpPage;
 
 const styles = StyleSheet.create({
   container: {
@@ -164,6 +328,35 @@ const styles = StyleSheet.create({
   logo: {
     width: 150,
     height: 150,
+  },
+  imagePickerButton: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#3498db",
+    backgroundColor: "#ecf0f1",
+    marginBottom: 20,
+    overflow: "hidden",
+  },
+  profileImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 60,
+  },
+  selectText: {
+    fontSize: 16,
+    color: "#3498db",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  uploadSuccess: {
+    color: "#27ae60",
+    marginBottom: 15,
+    fontSize: 14,
+    fontWeight: "500",
   },
   title: {
     fontSize: 28,
@@ -223,6 +416,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 20,
   },
+  disabledButton: {
+    opacity: 0.7,
+  },
   signUpButtonText: {
     color: "#fff",
     fontSize: 18,
@@ -237,3 +433,5 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
+
+export default SignUpPage;

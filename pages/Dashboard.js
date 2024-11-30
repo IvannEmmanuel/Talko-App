@@ -3,54 +3,54 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from "@expo/vector-icons";
 
-//Screens
-import HomePage from './screens/HomePage';
-import OrderPage from './screens/OrderPage';
-import Profile from './screens/Profile';
-import Settings from './screens/Settings';
+// Screens
+import ChatPage from './screens/ChatPage';
+import CallPage from './screens/CallPage';
+import ProfilePage from './screens/ProfilePage';
+import Notifications from './screens/Notifications';
 
-const homeName = 'Home';
-const orderName = 'Order';
-const customerName = 'Profile';
-const settingsName = 'Settings';
+const chatName = 'Chat';
+const callName = 'Call';
+const profileName = 'Profile';
+const notificationsName = 'Notifications';
 
 const Tab = createBottomTabNavigator();
 
 const Dashboard = () => {
-    return (
-      <Tab.Navigator
-        initialRouteName={homeName}
-        screenOptions={({ route }) => ({
-            headerShown: false,
-            tabBarIcon: ({ focused, color, size }) => {
-            let iconName;
-            let rn = route.name;
-  
-            if (rn === homeName) {
-              iconName = focused ? 'home' : 'home-outline';
-            } else if (rn === orderName) {
-              iconName = focused ? 'cart' : 'cart-outline';
-            } else if (rn === customerName) {
-              iconName = focused ? 'person' : 'person-outline';
-            } else if (rn === settingsName) {
-              iconName = focused ? 'settings' : 'settings-outline';
-            }
-  
-            return <Ionicons name={iconName} size={size} color={color} />;
-          },
-          tabBarActiveTintColor: "#3498DB",
-                tabBarInactiveTintColor: "black",
-                tabBarStyle: { paddingBottom: 10, height: 60 },
-        })}
-      >
-        <Tab.Screen name={homeName} component={HomePage} />
-        <Tab.Screen name={orderName} component={OrderPage} />
-        <Tab.Screen name={customerName} component={Profile} />
-        <Tab.Screen name={settingsName} component={Settings} />
-      </Tab.Navigator>
-    );
-  };
+  return (
+    <Tab.Navigator
+      initialRouteName={chatName}
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          let rn = route.name;
 
-export default Dashboard
+          if (rn === chatName) {
+            iconName = focused ? 'chatbubble' : 'chatbubble-outline';
+          } else if (rn === callName) {
+            iconName = focused ? 'call' : 'call-outline';
+          } else if (rn === profileName) {
+            iconName = focused ? 'person' : 'person-outline';
+          } else if (rn === notificationsName) {
+            iconName = focused ? 'notifications' : 'notifications-outline';
+          }
 
-const styles = StyleSheet.create({})
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: "#3498DB",
+        tabBarInactiveTintColor: "black",
+        tabBarStyle: { paddingBottom: 10, height: 60 },
+      })}
+    >
+      <Tab.Screen name={chatName} component={ChatPage} />
+      <Tab.Screen name={callName} component={CallPage} />
+      <Tab.Screen name={profileName} component={ProfilePage} />
+      <Tab.Screen name={notificationsName} component={Notifications}/>
+    </Tab.Navigator>
+  );
+};
+
+export default Dashboard;
+
+const styles = StyleSheet.create({});
