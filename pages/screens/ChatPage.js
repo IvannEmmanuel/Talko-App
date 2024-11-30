@@ -1,67 +1,92 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, FlatList, Image, TouchableOpacity } from 'react-native';
-import { auth, db } from '../../firebaseConfig'; // Update this path as per your project structure
-import { doc, getDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  FlatList,
+  Image,
+  TouchableOpacity,
+} from "react-native";
+import { auth, db } from "../../firebaseConfig";
+import { doc, onSnapshot } from "firebase/firestore";
+import { useNavigation } from "@react-navigation/native";
 
 const ChatPage = () => {
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigation = useNavigation();
+
+  const handleChat = (friend) => {
+    console.log("Navigating to chat with:", friend); // Log the friend object
+    navigation.navigate("Chats", { friend });
+  };
 
   useEffect(() => {
-    const fetchFriends = async () => {
-      // Assume the logged-in user's ID is being used to fetch their document
-      const currentUser = auth.currentUser;
-
-      if (currentUser) {
-        const userDocRef = doc(db, 'userInformation', currentUser.uid); // Adjust 'uid' as needed
-
-        try {
-          const docSnap = await getDoc(userDocRef);
-
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            const friendsList = data.friends || []; // Default to an empty array if 'friends' is missing
-            setFriends(friendsList); // Populate the friends state
-          } else {
-            console.log('No document found for this user.');
-            setFriends([]);
-          }
-        } catch (error) {
-          console.error('Error fetching friends:', error);
-        }
-      }
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
       setLoading(false);
-    };
+      return;
+    }
 
-    fetchFriends();
+    const userDocRef = doc(db, "userInformation", currentUser.uid);
+
+    const unsubscribe = onSnapshot(
+      userDocRef,
+      (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data();
+          const friendsList = data.friends || [];
+
+          const sortedFriends = friendsList.sort((a, b) =>
+            a.username.localeCompare(b.username)
+          );
+
+          setFriends(sortedFriends);
+          setLoading(false);
+        } else {
+          console.log("No document found for this user.");
+          setFriends([]);
+          setLoading(false);
+        }
+      },
+      (error) => {
+        console.error("Error listening to friends updates:", error);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
   }, []);
+
+  const renderFriendItem = ({ item }) => (
+    <TouchableOpacity style={styles.friendItem} onPress={() => handleChat({ ...item, id: item.id || item.email })}>
+      <Image source={{ uri: item.profilePictureURL }} style={styles.profilePicture} />
+      <View style={styles.friendDetails}>
+        <Text style={styles.friendName}>{item.username}</Text>
+        <Text style={styles.friendEmail}>{item.email}</Text>
+        {item.gender && (
+          <Text style={styles.friendGender}>
+            Gender: {item.gender}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Friends</Text>
       {loading ? (
-        <Text>Loading...</Text>
+        <Text style={styles.loadingText}>Loading friends...</Text>
       ) : friends.length > 0 ? (
         <FlatList
           data={friends}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.friendItem}>
-              <Image
-                source={{ uri: item.profilePictureURL }}
-                style={styles.profilePicture}
-              />
-              <View>
-                <Text style={styles.friendName}>{item.username}</Text>
-                <Text style={styles.friendEmail}>{item.email}</Text>
-                <Text style={styles.friendGender}>Gender: {item.gender}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
+          keyExtractor={(item) => item.id || item.email}
+          renderItem={renderFriendItem}
           contentContainerStyle={styles.friendList}
         />
       ) : (
-        <Text>No friends found.</Text>
+        <Text style={styles.noFriendsText}>No friends found.</Text>
       )}
     </View>
   );
@@ -72,24 +97,24 @@ export default ChatPage;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     padding: 16,
   },
   header: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    alignSelf: 'center',
+    fontWeight: "bold",
+    color: "#333",
+    alignSelf: "center",
     marginBottom: 16,
   },
   friendList: {
     paddingBottom: 16,
   },
   friendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 15,
-    backgroundColor: '#e6f7ff',
+    backgroundColor: "#e6f7ff",
     borderRadius: 8,
     marginVertical: 8,
   },
@@ -99,17 +124,30 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginRight: 10,
   },
+  friendDetails: {
+    flex: 1,
+  },
   friendName: {
     fontSize: 18,
-    color: '#333',
-    fontWeight: 'bold',
+    color: "#333",
+    fontWeight: "bold",
   },
   friendEmail: {
     fontSize: 14,
-    color: '#555',
+    color: "#555",
   },
   friendGender: {
     fontSize: 12,
-    color: '#777',
+    color: "#777",
+  },
+  loadingText: {
+    textAlign: "center",
+    color: "#666",
+    marginTop: 20,
+  },
+  noFriendsText: {
+    textAlign: "center",
+    color: "#666",
+    marginTop: 20,
   },
 });

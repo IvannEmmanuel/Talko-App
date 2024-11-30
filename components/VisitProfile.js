@@ -1,74 +1,88 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, Text, View, Button } from "react-native";
-import { db, auth } from "../firebaseConfig"; // Your Firebase configuration
+import { StyleSheet, Text, View, Button, Image } from "react-native";
+import { db, auth } from "../firebaseConfig";
 import {
   getDocs,
   query,
   collection,
   where,
   doc,
+  getDoc,
   updateDoc,
   arrayUnion,
 } from "firebase/firestore";
 
 const VisitProfile = ({ route }) => {
   const [userProfile, setUserProfile] = useState(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [error, setError] = useState(null);
 
   const { username } = route.params || {};
 
   useEffect(() => {
-    if (username) {
-      console.log("Username received:", username);
-      fetchUserProfile();
-    } else {
-      setError("No username provided.");
-    }
-  }, [username]);
-
-  const fetchUserProfile = async () => {
-    if (!username) {
-      setError("Username is not available.");
-      return;
-    }
-
-    try {
-      console.log("Searching for user with username:", username);
-      const userQuerySnapshot = await getDocs(
-        query(
-          collection(db, "userInformation"),
-          where("username", "==", username) // Ensure 'username' matches Firestore field
-        )
-      );
-
-      if (!userQuerySnapshot.empty) {
-        const userDoc = userQuerySnapshot.docs[0];
-        const userData = userDoc.data();
-
-        console.log("Fetched user data:", userData); // Verify the data structure
-
-        setUserProfile({
-          username: userData.username,
-          firstname: userData.firstname,
-          lastname: userData.lastname,
-          birthday: userData.birthday,
-          email: userData.email, // Ensure 'email' is included
-          id: userDoc.id, // User document ID
-        });
-      } else {
-        console.log("User not found!");
-        setError("User not found!");
+    const fetchProfiles = async () => {
+      if (!username) {
+        setError("No username provided.");
+        return;
       }
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
-      setError("Error fetching user profile.");
-    }
-  };
 
-  useEffect(() => {
-    if (username) {
-      fetchUserProfile();
-    }
+      try {
+        // Fetch recipient user profile
+        const userQuerySnapshot = await getDocs(
+          query(
+            collection(db, "userInformation"),
+            where("username", "==", username)
+          )
+        );
+
+        if (!userQuerySnapshot.empty) {
+          const userDoc = userQuerySnapshot.docs[0];
+          const userData = userDoc.data();
+
+          setUserProfile({
+            username: userData.username,
+            firstname: userData.firstname,
+            lastname: userData.lastname,
+            birthday: userData.birthday,
+            email: userData.email,
+            id: userDoc.id,
+            profilePictureURL: userData.profilePictureURL, // Store the profile picture URL
+          });
+
+          // Fetch current user's profile
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            const currentUserDocRef = doc(db, "userInformation", currentUser.uid);
+            const currentUserDocSnapshot = await getDoc(currentUserDocRef);
+            
+            if (currentUserDocSnapshot.exists()) {
+              const currentUserData = currentUserDocSnapshot.data();
+              setCurrentUserProfile({
+                username: currentUserData.username,
+                firstname: currentUserData.firstname,
+                lastname: currentUserData.lastname,
+                email: currentUserData.email,
+                id: currentUser.uid,
+                profilePictureURL: currentUserData.profilePictureURL, // Store the profile picture URL
+              });
+            } else {
+              console.log("Current user document not found.");
+              setError("Current user profile not found.");
+            }
+          } else {
+            console.log("No current user authenticated.");
+            setError("No user is currently authenticated.");
+          }
+        } else {
+          setError("User not found!");
+        }
+      } catch (error) {
+        console.error("Error fetching profiles:", error);
+        setError("Error fetching profiles.");
+      }
+    };
+
+    fetchProfiles();
   }, [username]);
 
   const handleAcceptRequest = async () => {
@@ -83,23 +97,25 @@ const VisitProfile = ({ route }) => {
 
         // Prepare the friend objects
         const currentUserFriendData = {
-          username: currentUser.displayName || currentUser.email, // Use username if available, fallback to email
-          email: currentUser.email,
+          username: currentUserProfile.username,
+          email: currentUserProfile.email,
+          profilePictureURL: currentUserProfile.profilePictureURL, // Include profile picture URL
         };
 
         const recipientFriendData = {
           username: userProfile.username,
-          email: userProfile.email, // Use email fetched from Firestore
+          email: userProfile.email,
+          profilePictureURL: userProfile.profilePictureURL, // Include profile picture URL
         };
 
         // Update the current user's friends list
         await updateDoc(currentUserDocRef, {
-          friends: arrayUnion(recipientFriendData), // Add the recipient's data as an object
+          friends: arrayUnion(recipientFriendData),
         });
 
         // Update the recipient's friends list
         await updateDoc(recipientDocRef, {
-          friends: arrayUnion(currentUserFriendData), // Add the current user's data as an object
+          friends: arrayUnion(currentUserFriendData),
         });
 
         console.log(
@@ -125,15 +141,20 @@ const VisitProfile = ({ route }) => {
 
   return (
     <View style={styles.container}>
-      {userProfile ? (
+      {userProfile && currentUserProfile ? (
         <>
           <Text style={styles.header}>Profile of {userProfile.username}</Text>
+          <Image
+            source={{ uri: userProfile.profilePictureURL }}
+            style={styles.profilePicture}
+          />
           <Text>
             Name: {userProfile.firstname} {userProfile.lastname}
           </Text>
           <Text>Birthday: {userProfile.birthday}</Text>
           <Text>Email: {userProfile.email}</Text>
           <Text>Username: {userProfile.username}</Text>
+
           <Button title="Accept Friend Request" onPress={handleAcceptRequest} />
           <Button
             title="Reject Friend Request"
@@ -141,7 +162,7 @@ const VisitProfile = ({ route }) => {
           />
         </>
       ) : (
-        <Text>Loading profile...</Text>
+        <Text>Loading profiles...</Text>
       )}
     </View>
   );
@@ -157,6 +178,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 20,
+  },
+  profilePicture: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 10,
   },
 });
 
