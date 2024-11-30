@@ -18,17 +18,22 @@ const VisitProfile = ({ route }) => {
   const { username } = route.params || {};
 
   useEffect(() => {
-    console.log("Route Params:", route.params);
-  }, [route]);
+    if (username) {
+      console.log("Username received:", username);
+      fetchUserProfile();
+    } else {
+      setError("No username provided.");
+    }
+  }, [username]);
 
   const fetchUserProfile = async () => {
     if (!username) {
       setError("Username is not available.");
       return;
     }
+
     try {
       console.log("Searching for user with username:", username);
-
       const userQuerySnapshot = await getDocs(
         query(
           collection(db, "userInformation"),
@@ -40,10 +45,8 @@ const VisitProfile = ({ route }) => {
         const userDoc = userQuerySnapshot.docs[0];
         const userData = userDoc.data();
 
-        // Log the data you're getting from Firestore
-        console.log("User Data:", userData);
+        console.log("Fetched user data:", userData); // Verify the data structure
 
-        // Set the user profile with fields you need
         setUserProfile({
           username: userData.username,
           firstname: userData.firstname,

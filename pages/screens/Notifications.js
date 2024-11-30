@@ -12,7 +12,7 @@ import { useNavigation } from "@react-navigation/native";
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Set loading state to true initially
   const navigation = useNavigation();
 
   // Fetch and listen to notifications in real-time
@@ -22,18 +22,25 @@ const Notifications = () => {
       const currentUserDocRef = doc(db, "userInformation", currentUser.uid);
 
       // Listen for changes in the user's document in real-time
-      const unsubscribe = onSnapshot(currentUserDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const userData = docSnap.data();
-          const userNotifications = userData.notifications || [];
-          console.log("Real-time user notifications:", userNotifications);
-          setNotifications(userNotifications);
-        } else {
-          console.log("User document not found!");
+      const unsubscribe = onSnapshot(
+        currentUserDocRef,
+        (docSnap) => {
+          if (docSnap.exists()) {
+            const userData = docSnap.data();
+            const userNotifications = userData.notifications || [];
+            console.log("Real-time user notifications:", userNotifications);
+            setNotifications(userNotifications);
+            setLoading(false); // Set loading to false when data is fetched
+          } else {
+            console.log("User document not found!");
+            setLoading(false); // Set loading to false if document is not found
+          }
+        },
+        (error) => {
+          console.error("Error fetching notifications:", error);
+          setLoading(false); // Set loading to false on error
         }
-      }, (error) => {
-        console.error("Error fetching notifications:", error);
-      });
+      );
 
       // Cleanup listener on component unmount
       return () => unsubscribe();
@@ -60,7 +67,7 @@ const Notifications = () => {
       <Text style={styles.header}>Notifications</Text>
 
       {loading ? (
-        <Text>Loading...</Text>
+        <Text>Loading...</Text> // Show loading text until data is fetched
       ) : (
         <FlatList
           data={notifications}
