@@ -9,7 +9,10 @@ import {
   Keyboard,
   ActivityIndicator,
   Dimensions,
-  Animated,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
 import { auth, db } from "../firebaseConfig";
 import {
@@ -22,6 +25,7 @@ import {
   addDoc,
   orderBy,
   deleteField,
+  updateDoc,
 } from "firebase/firestore";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { format } from "date-fns";
@@ -33,38 +37,18 @@ const Chats = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const [friendIsTyping, setFriendIsTyping] = useState(false);
   const [messageOptionsVisible, setMessageOptionsVisible] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editedMessageText, setEditedMessageText] = useState("");
   const route = useRoute();
   const navigation = useNavigation();
   const { friend } = route.params;
   const inputRef = useRef(null);
   const flatListRef = useRef(null);
-  const bounceAnim = useRef(new Animated.Value(0)).current;
-  const [editingMessageId, setEditingMessageId] = useState(null);
   const [shownReactionsMessageId, setShownReactionsMessageId] = useState(null);
 
   const reactions = ["❤️", "😢", "😮", "😠"];
-
-  useEffect(() => {
-    if (friendIsTyping) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(bounceAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(bounceAnim, {
-            toValue: 0,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }
-  }, [friendIsTyping]);
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -97,31 +81,80 @@ const Chats = () => {
 
       setMessages(filteredMessages);
       setLoading(false);
-    });
 
-    const typingRef = doc(db, "typingStatus", friend.email);
-    const unsubscribeTyping = onSnapshot(typingRef, (docSnapshot) => {
-      if (docSnapshot.exists()) {
-        setFriendIsTyping(docSnapshot.data().isTyping);
+      // Scroll to the bottom after setting messages
+      if (flatListRef.current) {
+        flatListRef.current.scrollToEnd({ animated: true }); // Changed animated to true for a smoother effect
       }
     });
 
     return () => {
       unsubscribe();
-      unsubscribeTyping();
     };
   }, [friend.email]);
 
-  const handleLongPress = (messageId, messageText) => {
+  // Add this useEffect to scroll to the bottom when the component mounts
+  useEffect(() => {
+    if (flatListRef.current) {
+      flatListRef.current.scrollToEnd({ animated: true });
+    }
+  }, []);
+
+  const handleLongPress = (messageId) => {
+    const currentUser = auth.currentUser;
+    const message = messages.find((m) => m.id === messageId);
+    const isOwnMessage = message.senderId === currentUser.email;
+
     if (selectedMessage?.id === messageId) {
-      // If the same message is long-pressed again, hide options
       setSelectedMessage(null);
       setMessageOptionsVisible(false);
       setShownReactionsMessageId(null);
     } else {
-      setSelectedMessage({ id: messageId, text: messageText });
-      setMessageOptionsVisible(true);
+      setSelectedMessage({ id: messageId });
+      setMessageOptionsVisible(isOwnMessage);
       setShownReactionsMessageId(messageId);
+    }
+  };
+
+  const handleScreenPress = () => {
+    setMessageOptionsVisible(false);
+    setSelectedMessage(null);
+    setShownReactionsMessageId(null);
+    Keyboard.dismiss();
+  };
+
+  const handleEditMessage = () => {
+    const currentUser = auth.currentUser;
+    const message = messages.find((m) => m.id === selectedMessage.id);
+
+    if (message.senderId !== currentUser.email) {
+      alert("You can only edit your own messages.");
+      return;
+    }
+
+    setEditedMessageText(message.text);
+    setEditModalVisible(true);
+  };
+
+  const confirmEditMessage = async () => {
+    if (!editedMessageText.trim()) {
+      alert("Message cannot be empty");
+      return;
+    }
+
+    const messageRef = doc(db, "messages", selectedMessage.id);
+
+    try {
+      await updateDoc(messageRef, {
+        text: editedMessageText.trim(),
+      });
+
+      setEditModalVisible(false);
+      setMessageOptionsVisible(false);
+      setSelectedMessage(null);
+    } catch (error) {
+      console.error("Error updating message: ", error);
+      alert("Failed to edit message");
     }
   };
 
@@ -145,21 +178,26 @@ const Chats = () => {
     );
 
     setShownReactionsMessageId(null);
-  };
-
-  const handleEditMessage = async (newMessageText) => {
-    const messageRef = doc(db, "messages", selectedMessage.id);
-    await setDoc(messageRef, { text: newMessageText }, { merge: true });
     setMessageOptionsVisible(false);
     setSelectedMessage(null);
   };
 
   const handleDeleteMessage = async () => {
+    const currentUser = auth.currentUser;
+
+    const message = messages.find((m) => m.id === selectedMessage.id);
+    if (message.senderId !== currentUser.email) {
+      alert("You can only delete your own messages.");
+      return;
+    }
+
     const messageRef = doc(db, "messages", selectedMessage.id);
     await deleteDoc(messageRef);
+
     setMessages((prevMessages) =>
       prevMessages.filter((message) => message.id !== selectedMessage.id)
     );
+
     setMessageOptionsVisible(false);
     setSelectedMessage(null);
   };
@@ -171,28 +209,14 @@ const Chats = () => {
 
       const currentUser = auth.currentUser;
 
-      if (editingMessageId) {
-        await handleEditMessage(newMessage);
-        setEditingMessageId(null);
-      } else {
-        await addDoc(collection(db, "messages"), {
-          text: newMessage,
-          senderId: currentUser.email,
-          receiverId: friend.email,
-          createdAt: new Date(),
-          reactions: {},
-        });
-      }
+      await addDoc(collection(db, "messages"), {
+        text: newMessage,
+        senderId: currentUser.email,
+        receiverId: friend.email,
+        createdAt: new Date(),
+        reactions: {},
+      });
     }
-  };
-
-  const handleTyping = (text) => {
-    setNewMessage(text);
-
-    const currentUser = auth.currentUser;
-    const typingRef = doc(db, "typingStatus", currentUser.email);
-
-    setDoc(typingRef, { isTyping: text.trim().length > 0 });
   };
 
   const renderMessageReactions = (item) => {
@@ -221,7 +245,7 @@ const Chats = () => {
           styles.message,
           isOwnMessage ? styles.sentMessage : styles.receivedMessage,
         ]}
-        onLongPress={() => handleLongPress(item.id, item.text)}
+        onLongPress={() => handleLongPress(item.id)}
       >
         <Text style={styles.messageText}>{item.text}</Text>
         <Text style={styles.timestamp}>{item.createdAt}</Text>
@@ -233,7 +257,6 @@ const Chats = () => {
             style={[
               styles.reactionsPopup,
               isOwnMessage ? { right: 0 } : { left: 0 },
-              { zIndex: 999 },
             ]}
           >
             {reactions.map((reaction) => (
@@ -251,7 +274,11 @@ const Chats = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+    >
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#333" />
@@ -259,54 +286,25 @@ const Chats = () => {
         <Text style={styles.header}>{friend.username}</Text>
       </View>
 
-      {loading ? (
-        <View style={styles.loadingIndicator}>
-          <ActivityIndicator size="large" color="#007bff" />
-          <Text>Loading chat...</Text>
-        </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMessageItem}
-          contentContainerStyle={styles.messageList}
-          onContentSizeChange={() => {
-            if (flatListRef.current) {
-              flatListRef.current.scrollToEnd({ animated: true });
-            }
-          }}
-          onLayout={() => {
-            if (flatListRef.current) {
-              flatListRef.current.scrollToEnd({ animated: true });
-            }
-          }}
-          onScrollBeginDrag={() => setShownReactionsMessageId(null)}
-        />
-      )}
-
-      {friendIsTyping && (
-        <Animated.View
-          style={[
-            styles.typingIndicator,
-            {
-              opacity: bounceAnim.interpolate({
-                inputRange: [0, 0.5, 1],
-                outputRange: [1, 0.5, 1],
-              }),
-            },
-          ]}
-        >
-          <Text>{friend.username} is typing...</Text>
-        </Animated.View>
-      )}
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        keyExtractor={(item) => item.id}
+        renderItem={renderMessageItem}
+        contentContainerStyle={styles.messageList}
+        onContentSizeChange={() => {
+          if (flatListRef.current) {
+            flatListRef.current.scrollToEnd({ animated: true }); // Automatically scroll to the bottom when content size changes
+          }
+        }}
+        keyboardShouldPersistTaps="handled"
+        style={{ flex: 1 }}
+        extraData={messages} // Ensure FlatList re-renders when messages change
+      />
 
       {messageOptionsVisible && selectedMessage && (
         <View style={styles.messageOptions}>
-          <TouchableOpacity
-            style={styles.option}
-            onPress={() => handleEditMessage(newMessage)}
-          >
+          <TouchableOpacity style={styles.option} onPress={handleEditMessage}>
             <Text>Edit</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.option} onPress={handleDeleteMessage}>
@@ -315,11 +313,44 @@ const Chats = () => {
         </View>
       )}
 
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalTitle}>Edit Message</Text>
+            <TextInput
+              style={styles.editInput}
+              value={editedMessageText}
+              onChangeText={setEditedMessageText}
+              multiline={true}
+            />
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setEditModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={confirmEditMessage}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.inputContainer}>
         <TextInput
           ref={inputRef}
           value={newMessage}
-          onChangeText={handleTyping}
+          onChangeText={setNewMessage}
           placeholder="Type a message"
           style={styles.input}
         />
@@ -327,14 +358,13 @@ const Chats = () => {
           <Ionicons name="send" size={24} color="white" />
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 10,
     backgroundColor: "#fff",
   },
   headerContainer: {
@@ -357,7 +387,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginLeft: 8,
   },
+  scrollViewContent: {
+    flexGrow: 1,
+  },
   messageList: {
+    paddingHorizontal: 10,
     paddingBottom: 50,
   },
   message: {
@@ -405,17 +439,13 @@ const styles = StyleSheet.create({
   reactionEmoji: {
     fontSize: 24,
   },
-  typingIndicator: {
-    position: "absolute",
-    bottom: 20,
-    left: 10,
-  },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "#ccc",
     paddingVertical: 10,
+    paddingHorizontal: 10,
   },
   input: {
     flex: 1,
@@ -438,9 +468,9 @@ const styles = StyleSheet.create({
   },
   messageOptions: {
     position: "absolute",
-    bottom: 10,
-    left: "50%",
-    transform: [{ translateX: -50 }],
+    flexDirection: "row",
+    bottom: height * 0.08,
+    width: width * 1,
     backgroundColor: "white",
     padding: 10,
     borderRadius: 10,
@@ -451,6 +481,56 @@ const styles = StyleSheet.create({
   option: {
     paddingVertical: 5,
     paddingHorizontal: 10,
+  },
+  centeredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalView: {
+    backgroundColor: "white",
+    borderRadius: 10,
+    padding: 20,
+    width: "80%",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+  editInput: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 15,
+  },
+  modalButtonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  modalButton: {
+    padding: 10,
+    borderRadius: 5,
+    width: "45%",
+  },
+  cancelButton: {
+    backgroundColor: "#f1f1f1",
+  },
+  saveButton: {
+    backgroundColor: "#007bff",
+  },
+  cancelButtonText: {
+    color: "#333",
+    textAlign: "center",
+  },
+  saveButtonText: {
+    color: "white",
+    textAlign: "center",
   },
 });
 
