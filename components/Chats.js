@@ -5,6 +5,7 @@ import {
   View,
   FlatList,
   TextInput,
+  TouchableWithoutFeedback,
   TouchableOpacity,
   Keyboard,
   ActivityIndicator,
@@ -12,7 +13,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
+  Image,
 } from "react-native";
 import { auth, db } from "../firebaseConfig";
 import {
@@ -48,7 +49,7 @@ const Chats = () => {
   const flatListRef = useRef(null);
   const [shownReactionsMessageId, setShownReactionsMessageId] = useState(null);
 
-  const reactions = ["❤️", "😢", "😮", "😠"];
+  const reactions = ["👍", "😆", "❤️", "😢", "😮", "😠"];
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -116,13 +117,6 @@ const Chats = () => {
     }
   };
 
-  const handleScreenPress = () => {
-    setMessageOptionsVisible(false);
-    setSelectedMessage(null);
-    setShownReactionsMessageId(null);
-    Keyboard.dismiss();
-  };
-
   const handleEditMessage = () => {
     const currentUser = auth.currentUser;
     const message = messages.find((m) => m.id === selectedMessage.id);
@@ -144,14 +138,15 @@ const Chats = () => {
 
     const messageRef = doc(db, "messages", selectedMessage.id);
 
+    setEditModalVisible(false);
+    setShownReactionsMessageId(null);
+    setMessageOptionsVisible(false);
+    setSelectedMessage(null);
+
     try {
       await updateDoc(messageRef, {
         text: editedMessageText.trim(),
       });
-
-      setEditModalVisible(false);
-      setMessageOptionsVisible(false);
-      setSelectedMessage(null);
     } catch (error) {
       console.error("Error updating message: ", error);
       alert("Failed to edit message");
@@ -162,9 +157,14 @@ const Chats = () => {
     const currentUser = auth.currentUser;
     const messageRef = doc(db, "messages", messageId);
 
+    // Optimistically hide options before the database update
+    setShownReactionsMessageId(null);
+    setMessageOptionsVisible(false);
+    setSelectedMessage(null);
+
+    // Perform the database update
     const message = messages.find((m) => m.id === messageId);
     const currentUserReaction = message.reactions[currentUser.email];
-
     await setDoc(
       messageRef,
       {
@@ -176,10 +176,6 @@ const Chats = () => {
       },
       { merge: true }
     );
-
-    setShownReactionsMessageId(null);
-    setMessageOptionsVisible(false);
-    setSelectedMessage(null);
   };
 
   const handleDeleteMessage = async () => {
@@ -273,6 +269,20 @@ const Chats = () => {
     );
   };
 
+  const renderFooter = () => {
+    return (
+      <View style={styles.footerContainer}>
+        <Image
+          source={{ uri: friend.profilePictureURL }} // Assuming friend has profilePictureURL
+          style={styles.profilePicture}
+        />
+        <Text style={styles.footerText}>
+          Start a conversation with {friend.username}!
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -286,21 +296,39 @@ const Chats = () => {
         <Text style={styles.header}>{friend.username}</Text>
       </View>
 
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMessageItem}
-        contentContainerStyle={styles.messageList}
-        onContentSizeChange={() => {
-          if (flatListRef.current) {
-            flatListRef.current.scrollToEnd({ animated: true }); // Automatically scroll to the bottom when content size changes
-          }
-        }}
-        keyboardShouldPersistTaps="handled"
-        style={{ flex: 1 }}
-        extraData={messages} // Ensure FlatList re-renders when messages change
-      />
+      {loading ? (
+        <View style={styles.loadingIndicator}>
+          <ActivityIndicator size="large" color="#007bff" />
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableWithoutFeedback
+              onPress={() => {
+                if (messageOptionsVisible || shownReactionsMessageId !== null) {
+                  setMessageOptionsVisible(false);
+                  setSelectedMessage(null);
+                  setShownReactionsMessageId(null);
+                }
+              }}
+            >
+              <View>{renderMessageItem({ item })}</View>
+            </TouchableWithoutFeedback>
+          )}
+          contentContainerStyle={styles.messageList}
+          onContentSizeChange={() => {
+            if (flatListRef.current) {
+              flatListRef.current.scrollToEnd({ animated: true });
+            }
+          }}
+          keyboardShouldPersistTaps="always"
+          style={{ flex: 1 }}
+          ListHeaderComponent={renderFooter}
+        />
+      )}
 
       {messageOptionsVisible && selectedMessage && (
         <View style={styles.messageOptions}>
@@ -427,9 +455,9 @@ const styles = StyleSheet.create({
   },
   reactionsPopup: {
     position: "absolute",
-    bottom: 50,
+    bottom: height * 0.07,
     backgroundColor: "white",
-    padding: 10,
+    padding: 5,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#ccc",
@@ -437,14 +465,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-evenly",
   },
   reactionEmoji: {
-    fontSize: 24,
+    fontSize: 20,
+    margin: 5,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "#ccc",
-    paddingVertical: 10,
+    paddingVertical: 15,
     paddingHorizontal: 10,
   },
   input: {
@@ -453,7 +482,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ccc",
     paddingLeft: 10,
-    paddingVertical: 5,
+    paddingVertical: 10,
   },
   sendButton: {
     marginLeft: 10,
@@ -467,9 +496,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   messageOptions: {
-    position: "absolute",
-    flexDirection: "row",
-    bottom: height * 0.08,
+    flexDirection: "row-reverse",
     width: width * 1,
     backgroundColor: "white",
     padding: 10,
@@ -510,27 +537,29 @@ const styles = StyleSheet.create({
   },
   modalButtonContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
+    alignSelf: "flex-end",
   },
   modalButton: {
     padding: 10,
     borderRadius: 5,
-    width: "45%",
   },
-  cancelButton: {
-    backgroundColor: "#f1f1f1",
+  footerContainer: {
+    alignItems: "center",
+    padding: 10,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    marginBottom: height * 0.03,
   },
-  saveButton: {
-    backgroundColor: "#007bff",
-  },
-  cancelButtonText: {
+  footerText: {
     color: "#333",
-    textAlign: "center",
+    fontSize: 18,
+    marginLeft: 10,
   },
-  saveButtonText: {
-    color: "white",
-    textAlign: "center",
+  profilePicture: {
+    width: 100,
+    height: 100,
+    marginBottom: height * 0.02,
+    borderRadius: 100,
   },
 });
 
