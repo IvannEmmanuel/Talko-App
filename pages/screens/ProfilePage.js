@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, Text, View, Image, ActivityIndicator, ScrollView } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  View,
+  Image,
+  ActivityIndicator,
+  ScrollView,
+} from "react-native";
 import { doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../../firebaseConfig";
 
@@ -66,7 +73,9 @@ const ProfilePage = () => {
           </View>
         )}
       </View>
-      <Text style={styles.title}>{userData.firstname} {userData.lastname}</Text>
+      <Text style={styles.title}>
+        {userData.firstname} {userData.lastname}
+      </Text>
       <View style={styles.infoContainer}>
         <InfoItem label="Username" value={userData.username} />
         <InfoItem label="Email" value={userData.email} />
@@ -80,7 +89,7 @@ const ProfilePage = () => {
 
 const InfoItem = ({ label, value }) => (
   <View style={styles.infoItem}>
-    <Text style={styles.label}>{label}:</Text>
+    <Text style={styles.label}>{label}</Text>
     <Text style={styles.value}>{value}</Text>
   </View>
 );
@@ -91,28 +100,34 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     backgroundColor: "#f8f9fa",
-    padding: 20,
     alignItems: "center",
+    padding: 20,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#f8f9fa",
   },
   logo: {
-    width: 100,
-    height: 100,
+    width: 90,
+    height: 90,
     marginBottom: 20,
   },
   profileImageContainer: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
     overflow: "hidden",
-    marginBottom: 20,
-    backgroundColor: "#e0e0e0",
+    marginBottom: 15,
+    backgroundColor: "#ecf0f1",
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   profileImage: {
     width: "100%",
@@ -131,42 +146,44 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "bold",
-    color: "#34495e",
-    marginBottom: 20,
+    color: "#2c3e50",
+    marginBottom: 10,
+    textAlign: "center",
   },
   infoContainer: {
     width: "100%",
     backgroundColor: "#ffffff",
     borderRadius: 10,
-    padding: 20,
+    padding: 15,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 4,
+    marginTop: 10,
   },
   infoItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: "#e0e0e0",
   },
   label: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#34495e",
+    color: "#2c3e50",
   },
   value: {
     fontSize: 16,
     color: "#7f8c8d",
   },
   errorText: {
-    fontSize: 16,
+    fontSize: 18,
     color: "#e74c3c",
+    marginTop: 20,
   },
 });
-

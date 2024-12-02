@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, Text, View, Button, Image } from "react-native";
+import { StyleSheet, Text, View, Button, Image, TouchableOpacity } from "react-native";
 import { db, auth } from "../firebaseConfig";
 import {
   getDocs,
@@ -16,6 +16,7 @@ const VisitProfile = ({ route }) => {
   const [userProfile, setUserProfile] = useState(null);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [error, setError] = useState(null);
+  const [isFriend, setIsFriend] = useState(false);
 
   const { username } = route.params || {};
 
@@ -27,12 +28,8 @@ const VisitProfile = ({ route }) => {
       }
 
       try {
-        // Fetch recipient user profile
         const userQuerySnapshot = await getDocs(
-          query(
-            collection(db, "userInformation"),
-            where("username", "==", username)
-          )
+          query(collection(db, "userInformation"), where("username", "==", username))
         );
 
         if (!userQuerySnapshot.empty) {
@@ -46,15 +43,14 @@ const VisitProfile = ({ route }) => {
             birthday: userData.birthday,
             email: userData.email,
             id: userDoc.id,
-            profilePictureURL: userData.profilePictureURL, // Store the profile picture URL
+            profilePictureURL: userData.profilePictureURL,
           });
 
-          // Fetch current user's profile
           const currentUser = auth.currentUser;
           if (currentUser) {
             const currentUserDocRef = doc(db, "userInformation", currentUser.uid);
             const currentUserDocSnapshot = await getDoc(currentUserDocRef);
-            
+
             if (currentUserDocSnapshot.exists()) {
               const currentUserData = currentUserDocSnapshot.data();
               setCurrentUserProfile({
@@ -63,21 +59,22 @@ const VisitProfile = ({ route }) => {
                 lastname: currentUserData.lastname,
                 email: currentUserData.email,
                 id: currentUser.uid,
-                profilePictureURL: currentUserData.profilePictureURL, // Store the profile picture URL
+                profilePictureURL: currentUserData.profilePictureURL,
               });
+
+              // Check if they are already friends
+              const friends = currentUserData.friends || [];
+              setIsFriend(friends.some(friend => friend.username === userData.username));
             } else {
-              console.log("Current user document not found.");
               setError("Current user profile not found.");
             }
           } else {
-            console.log("No current user authenticated.");
             setError("No user is currently authenticated.");
           }
         } else {
           setError("User not found!");
         }
       } catch (error) {
-        console.error("Error fetching profiles:", error);
         setError("Error fetching profiles.");
       }
     };
@@ -89,42 +86,26 @@ const VisitProfile = ({ route }) => {
     try {
       const currentUser = auth.currentUser;
       if (currentUser && userProfile && userProfile.email) {
-        // Reference to the current user's document
         const currentUserDocRef = doc(db, "userInformation", currentUser.uid);
-
-        // Reference to the recipient's document
         const recipientDocRef = doc(db, "userInformation", userProfile.id);
 
-        // Prepare the friend objects
         const currentUserFriendData = {
           username: currentUserProfile.username,
           email: currentUserProfile.email,
-          profilePictureURL: currentUserProfile.profilePictureURL, // Include profile picture URL
+          profilePictureURL: currentUserProfile.profilePictureURL,
         };
 
         const recipientFriendData = {
           username: userProfile.username,
           email: userProfile.email,
-          profilePictureURL: userProfile.profilePictureURL, // Include profile picture URL
+          profilePictureURL: userProfile.profilePictureURL,
         };
 
-        // Update the current user's friends list
-        await updateDoc(currentUserDocRef, {
-          friends: arrayUnion(recipientFriendData),
-        });
+        // Add to both users' friends list
+        await updateDoc(currentUserDocRef, { friends: arrayUnion(recipientFriendData) });
+        await updateDoc(recipientDocRef, { friends: arrayUnion(currentUserFriendData) });
 
-        // Update the recipient's friends list
-        await updateDoc(recipientDocRef, {
-          friends: arrayUnion(currentUserFriendData),
-        });
-
-        console.log(
-          "Friend request accepted, and both users updated successfully."
-        );
-      } else {
-        console.error(
-          "Missing user data. Ensure 'email' field is available for both users."
-        );
+        setIsFriend(true);
       }
     } catch (error) {
       console.error("Error accepting friend request:", error);
@@ -144,22 +125,30 @@ const VisitProfile = ({ route }) => {
       {userProfile && currentUserProfile ? (
         <>
           <Text style={styles.header}>Profile of {userProfile.username}</Text>
-          <Image
-            source={{ uri: userProfile.profilePictureURL }}
-            style={styles.profilePicture}
-          />
-          <Text>
-            Name: {userProfile.firstname} {userProfile.lastname}
+          <Image source={{ uri: userProfile.profilePictureURL }} style={styles.profilePicture} />
+          <Text style={styles.profileDetails}>
+            {userProfile.firstname} {userProfile.lastname}
           </Text>
-          <Text>Birthday: {userProfile.birthday}</Text>
-          <Text>Email: {userProfile.email}</Text>
-          <Text>Username: {userProfile.username}</Text>
+          <Text style={styles.profileDetails}>Birthday: {userProfile.birthday}</Text>
+          <Text style={styles.profileDetails}>Email: {userProfile.email}</Text>
+          <Text style={styles.profileDetails}>Username: {userProfile.username}</Text>
 
-          <Button title="Accept Friend Request" onPress={handleAcceptRequest} />
-          <Button
-            title="Reject Friend Request"
-            onPress={() => console.log("Friend request rejected")}
-          />
+          {/* If they are already friends, show "Friends" */}
+          {isFriend ? (
+            <Text style={styles.friendStatus}>You are now friends!</Text>
+          ) : (
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity style={styles.acceptButton} onPress={handleAcceptRequest}>
+                <Text style={styles.buttonText}>Accept Friend Request</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.acceptButton, styles.rejectButton]}
+                onPress={() => console.log("Friend request rejected")}
+              >
+                <Text style={styles.buttonText}>Reject Friend Request</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </>
       ) : (
         <Text>Loading profiles...</Text>
@@ -172,18 +161,53 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: "#f8f9fa",
+    alignItems: "center",
   },
   header: {
     fontSize: 24,
     fontWeight: "bold",
+    color: "#2c3e50",
     marginBottom: 20,
+    textAlign: "center",
   },
   profilePicture: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 15,
+  },
+  profileDetails: {
+    fontSize: 16,
+    color: "#34495e",
     marginBottom: 10,
+  },
+  buttonContainer: {
+    marginTop: 20,
+    width: "100%",
+    alignItems: "center",
+  },
+  acceptButton: {
+    backgroundColor: "#3498db",
+    padding: 10,
+    borderRadius: 8,
+    width: "80%",
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  rejectButton: {
+    backgroundColor: "#e74c3c",
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  friendStatus: {
+    fontSize: 18,
+    color: "#2ecc71",
+    fontWeight: "bold",
+    marginTop: 20,
   },
 });
 

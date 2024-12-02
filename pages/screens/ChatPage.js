@@ -6,7 +6,7 @@ import {
   FlatList,
   Image,
   TouchableOpacity,
-  Dimensions
+  Dimensions,
 } from "react-native";
 import { auth, db } from "../../firebaseConfig";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -61,21 +61,37 @@ const ChatPage = () => {
     return () => unsubscribe();
   }, []);
 
-  const renderFriendItem = ({ item }) => (
-    <TouchableOpacity style={styles.friendItem} onPress={() => handleChat({ ...item, id: item.id || item.email })}>
-      <View style={styles.header}>
-        <Image source={{ uri: item.profilePictureURL }} style={styles.profilePicture} />
-      </View>
-      <View style={styles.friendDetails}>
-        <Text style={styles.friendName}>{item.username}</Text>
-        <Text style={styles.friendEmail}>{item.email}</Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderFriendItem = ({ item }) => {
+    const isFriend = friends.some((friend) => friend.email === item.email); // Adjust this based on your unique identifier
+
+    return (
+      <TouchableOpacity
+        style={styles.friendItem}
+        onPress={() => handleChat({ ...item, id: item.id || item.email })}
+      >
+        <View style={styles.header}>
+          <Image
+            source={{ uri: item.profilePictureURL }}
+            style={styles.profilePicture}
+          />
+        </View>
+        <View style={styles.friendDetails}>
+          <Text style={styles.friendName}>{item.username}</Text>
+          <Text style={styles.friendEmail}>{item.email}</Text>
+          <Text style={styles.friendStatus}>
+            {isFriend ? "Friends" : "Add Friend"}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <Image source={require('../../images/TALKO.png')} style={styles.talkoPic} />
+      <Image
+        source={require("../../images/TALKO.png")}
+        style={styles.talkoPic}
+      />
       {loading ? (
         <Text style={styles.loadingText}>Loading friends...</Text>
       ) : friends.length > 0 ? (
@@ -100,10 +116,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#f2f2f2", // Lighter background for a cleaner look
     padding: 16,
   },
-  talkoPic:{
+  talkoPic: {
     height: height * 0.2,
     width: height * 0.2,
-    alignSelf: 'center'
+    alignSelf: "center",
   },
   friendList: {
     paddingBottom: 16,

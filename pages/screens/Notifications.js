@@ -5,60 +5,49 @@ import {
   View,
   FlatList,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import { doc, onSnapshot } from "firebase/firestore";
-import { db, auth } from "../../firebaseConfig"; // Your Firebase configuration
+import { db, auth } from "../../firebaseConfig";
 import { useNavigation } from "@react-navigation/native";
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true); // Set loading state to true initially
+  const [loading, setLoading] = useState(true);
   const navigation = useNavigation();
 
-  // Fetch and listen to notifications in real-time
   useEffect(() => {
     const currentUser = auth.currentUser;
     if (currentUser) {
       const currentUserDocRef = doc(db, "userInformation", currentUser.uid);
 
-      // Listen for changes in the user's document in real-time
       const unsubscribe = onSnapshot(
         currentUserDocRef,
         (docSnap) => {
           if (docSnap.exists()) {
             const userData = docSnap.data();
-            const userNotifications = userData.notifications || [];
-            console.log("Real-time user notifications:", userNotifications);
-            setNotifications(userNotifications);
-            setLoading(false); // Set loading to false when data is fetched
+            setNotifications(userData.notifications || []);
           } else {
             console.log("User document not found!");
-            setLoading(false); // Set loading to false if document is not found
           }
+          setLoading(false);
         },
         (error) => {
           console.error("Error fetching notifications:", error);
-          setLoading(false); // Set loading to false on error
+          setLoading(false);
         }
       );
 
-      // Cleanup listener on component unmount
       return () => unsubscribe();
     }
   }, []);
 
   const handleViewProfile = (message) => {
-    // Assuming the message is in the format "@username message text"
-    console.log("Navigating to profile of:", message);
-
-    // Extract the username, including the '@' symbol
-    const username = message.split(' ')[0];  // Keep '@' with the username
-    console.log("Extracted username:", username);
-
+    const username = message.split(" ")[0]; // Extract username
     if (username) {
-      navigation.navigate("VisitProfile", { username });  // Pass the username to VisitProfile
+      navigation.navigate("VisitProfile", { username });
     } else {
-      console.log("Recipient username is undefined");
+      console.log("Username not found in message");
     }
   };
 
@@ -67,27 +56,31 @@ const Notifications = () => {
       <Text style={styles.header}>Notifications</Text>
 
       {loading ? (
-        <Text>Loading...</Text> // Show loading text until data is fetched
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3498db" />
+        </View>
+      ) : notifications.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No notifications yet!</Text>
+        </View>
       ) : (
         <FlatList
           data={notifications}
           keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) => {
-            console.log("Notification item:", item);
-            return (
-              <View style={styles.notificationItem}>
-                <Text style={styles.notificationMessage}>{item.message}</Text>
-                <Text style={styles.notificationTimestamp}>
-                  {new Date(item.timestamp.seconds * 1000).toLocaleString()}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => handleViewProfile(item.message)}
-                >
-                  <Text style={styles.viewProfileButton}>View Profile</Text>
-                </TouchableOpacity>
-              </View>
-            );
-          }}
+          renderItem={({ item }) => (
+            <View style={styles.notificationItem}>
+              <Text style={styles.notificationMessage}>{item.message}</Text>
+              <Text style={styles.notificationTimestamp}>
+                {new Date(item.timestamp.seconds * 1000).toLocaleString()}
+              </Text>
+              <TouchableOpacity
+                style={styles.viewProfileButtonContainer}
+                onPress={() => handleViewProfile(item.message)}
+              >
+                <Text style={styles.viewProfileButton}>View Profile</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         />
       )}
     </View>
@@ -97,38 +90,63 @@ const Notifications = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#f8f9fa",
     padding: 20,
-    backgroundColor: "#f4f4f4",
   },
   header: {
     fontSize: 24,
     fontWeight: "bold",
+    color: "#2c3e50",
     marginBottom: 20,
+    textAlign: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: 18,
+    color: "#7f8c8d",
+    textAlign: "center",
   },
   notificationItem: {
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     padding: 15,
-    marginBottom: 10,
-    borderRadius: 5,
+    borderRadius: 10,
+    marginBottom: 15,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
+    elevation: 4,
   },
   notificationMessage: {
     fontSize: 16,
-    color: "#333",
+    color: "#2c3e50",
+    marginBottom: 5,
   },
   notificationTimestamp: {
     fontSize: 12,
-    color: "#888",
-    marginTop: 5,
+    color: "#95a5a6",
+    marginBottom: 10,
+  },
+  viewProfileButtonContainer: {
+    alignSelf: "flex-start",
+    padding: 8,
+    backgroundColor: "#3498db",
+    borderRadius: 5,
   },
   viewProfileButton: {
-    fontSize: 16,
-    color: "#3498db",
-    textDecorationLine: "underline",
-    marginTop: 10,
+    fontSize: 14,
+    color: "#ffffff",
+    fontWeight: "bold",
+    textAlign: "center",
   },
 });
 

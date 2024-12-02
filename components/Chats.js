@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  RefreshControl,
 } from "react-native";
 import { auth, db } from "../firebaseConfig";
 import {
@@ -27,12 +28,14 @@ import {
   orderBy,
   deleteField,
   updateDoc,
+  limit,
+  startAfter,
+  getDocs,
 } from "firebase/firestore";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { format } from "date-fns";
 import { Ionicons } from "@expo/vector-icons";
-
-const { height, width } = Dimensions.get("window");
+import { styles } from "../styles/chatStyles";
 
 const Chats = () => {
   const [messages, setMessages] = useState([]);
@@ -42,6 +45,8 @@ const Chats = () => {
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editedMessageText, setEditedMessageText] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastVisible, setLastVisible] = useState(null);
   const route = useRoute();
   const navigation = useNavigation();
   const { friend } = route.params;
@@ -51,12 +56,53 @@ const Chats = () => {
 
   const reactions = ["👍", "😆", "❤️", "😢", "😮", "😠"];
 
+  const loadOlderMessages = async () => {
+    if (!lastVisible) return;
+
+    const currentUser = auth.currentUser;
+    const messagesRef = collection(db, "messages");
+    const q = query(
+      messagesRef,
+      orderBy("createdAt", "desc"),
+      startAfter(lastVisible),
+      limit(10)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const olderMessages = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const formattedData = {
+        id: doc.id,
+        ...data,
+        createdAt: format(data.createdAt.toDate(), "MMM dd, yyyy hh:mm a"),
+        reactions: data.reactions || {},
+      };
+      olderMessages.push(formattedData);
+    });
+
+    const filteredOlderMessages = olderMessages.filter(
+      (message) =>
+        (message.senderId.toLowerCase() === currentUser.email.toLowerCase() &&
+          message.receiverId.toLowerCase() === friend.email.toLowerCase()) ||
+        (message.senderId.toLowerCase() === friend.email.toLowerCase() &&
+          message.receiverId.toLowerCase() === currentUser.email.toLowerCase())
+    );
+
+    setMessages((prevMessages) => [...prevMessages, ...filteredOlderMessages]);
+    if (querySnapshot.docs.length > 0) {
+      setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
+    } else {
+      setLastVisible(null);
+    }
+  };
+
   useEffect(() => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
     const messagesRef = collection(db, "messages");
-    const q = query(messagesRef, orderBy("createdAt"));
+    const q = query(messagesRef, orderBy("createdAt", "desc"), limit(30));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const messagesList = [];
@@ -82,27 +128,13 @@ const Chats = () => {
 
       setMessages(filteredMessages);
       setLoading(false);
-
-      // Scroll to the bottom after setting messages
-      if (flatListRef.current) {
-        flatListRef.current.scrollToEnd({ animated: true });
-      }
+      setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
     });
 
     return () => {
       unsubscribe();
     };
   }, [friend.email]);
-
-  // Add this useEffect to scroll to the bottom when the component mounts
-  useEffect(() => {
-    if (messages.length > 0 && flatListRef.current) {
-      flatListRef.current.scrollToIndex({
-        index: messages.length - 1,
-        animated: true,
-      });
-    }
-  }, [messages]);
 
   const handleLongPress = (messageId) => {
     const currentUser = auth.currentUser;
@@ -184,6 +216,9 @@ const Chats = () => {
   const handleDeleteMessage = async () => {
     const currentUser = auth.currentUser;
 
+    setMessageOptionsVisible(false);
+    setSelectedMessage(null);
+
     const message = messages.find((m) => m.id === selectedMessage.id);
     if (message.senderId !== currentUser.email) {
       alert("You can only delete your own messages.");
@@ -196,23 +231,11 @@ const Chats = () => {
     setMessages((prevMessages) =>
       prevMessages.filter((message) => message.id !== selectedMessage.id)
     );
-
-    setMessageOptionsVisible(false);
-    setSelectedMessage(null);
   };
 
   const handleSendMessage = async () => {
     if (newMessage.trim()) {
       const currentUser = auth.currentUser;
-
-      // Add the new message to Firestore
-      await addDoc(collection(db, "messages"), {
-        text: newMessage,
-        senderId: currentUser.email,
-        receiverId: friend.email,
-        createdAt: new Date(),
-        reactions: {},
-      });
 
       // Clear the input field
       setNewMessage("");
@@ -220,9 +243,31 @@ const Chats = () => {
       // Dismiss the keyboard
       Keyboard.dismiss();
 
-      // Scroll to the bottom immediately after sending a new message
+      // Create the new message object
+      const newMessageObj = {
+        text: newMessage,
+        senderId: currentUser.email,
+        receiverId: friend.email,
+        createdAt: new Date(),
+        reactions: {},
+      };
+
+      // Add the new message to Firestore
+      const docRef = await addDoc(collection(db, "messages"), newMessageObj);
+
+      // Add the new message to the state
+      setMessages((prevMessages) => [
+        {
+          id: docRef.id,
+          ...newMessageObj,
+          createdAt: format(newMessageObj.createdAt, "MMM dd, yyyy hh:mm a"),
+        },
+        ...prevMessages,
+      ]);
+
+      // Scroll to the top (which is now the bottom since the list is not inverted)
       if (flatListRef.current) {
-        flatListRef.current.scrollToEnd({ animated: true });
+        flatListRef.current.scrollToOffset({ offset: 0, animated: true });
       }
     }
   };
@@ -281,19 +326,19 @@ const Chats = () => {
     );
   };
 
-  const renderFooter = () => {
-    return (
-      <View style={styles.footerContainer}>
-        <Image
-          source={{ uri: friend.profilePictureURL }} // Assuming friend has profilePictureURL
-          style={styles.profilePicture}
-        />
-        <Text style={styles.footerText}>
-          Start a conversation with {friend.username}!
-        </Text>
-      </View>
-    );
-  };
+  // const renderFooter = () => {
+  //   return (
+  //     <View style={styles.footerContainer}>
+  //       <Image
+  //         source={{ uri: friend.profilePictureURL }}
+  //         style={styles.profilePicture}
+  //       />
+  //       <Text style={styles.footerText}>
+  //         Start a conversation with {friend.username}!
+  //       </Text>
+  //     </View>
+  //   );
+  // };
 
   return (
     <KeyboardAvoidingView
@@ -305,7 +350,13 @@ const Chats = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.header}>{friend.username}</Text>
+        <View style={styles.profileHeader}>
+          <Image
+            source={{ uri: friend.profilePictureURL }}
+            style={styles.profilePicture}
+          />
+          <Text style={styles.header}>{friend.username}</Text>
+        </View>
       </View>
 
       {loading ? (
@@ -331,22 +382,10 @@ const Chats = () => {
             </TouchableWithoutFeedback>
           )}
           contentContainerStyle={styles.messageList}
-          onContentSizeChange={() => {
-            if (messages.length > 0 && flatListRef.current) {
-              flatListRef.current.scrollToIndex({
-                index: messages.length - 1,
-                animated: true,
-              });
-            }
-          }}
-          getItemLayout={(data, index) => ({
-            length: 100, // Replace with the actual height of each item
-            offset: 100 * index,
-            index,
-          })}
-          keyboardShouldPersistTaps="always"
-          style={{ flex: 1 }}
-          ListHeaderComponent={renderFooter}
+          inverted
+          onEndReached={loadOlderMessages}
+          // ListFooterComponent={renderFooter}
+          onEndReachedThreshold={0.1}
         />
       )}
 
@@ -409,178 +448,5 @@ const Chats = () => {
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  headerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    backgroundColor: "white",
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-    marginBottom: 16,
-    marginTop: height * 0.03,
-  },
-  header: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginLeft: 8,
-  },
-  scrollViewContent: {
-    flexGrow: 1,
-  },
-  messageList: {
-    paddingHorizontal: 10,
-    paddingBottom: 20,
-  },
-  message: {
-    marginBottom: 10,
-    padding: 10,
-    borderRadius: 8,
-    maxWidth: "80%",
-    position: "relative",
-  },
-  sentMessage: {
-    backgroundColor: "#d1f0d1",
-    alignSelf: "flex-end",
-  },
-  receivedMessage: {
-    backgroundColor: "#f1f1f1",
-    alignSelf: "flex-start",
-  },
-  messageText: {
-    fontSize: 16,
-  },
-  timestamp: {
-    fontSize: 12,
-    color: "gray",
-    marginTop: 5,
-  },
-  reactionContainer: {
-    flexDirection: "row",
-    marginTop: 5,
-  },
-  reactionText: {
-    fontSize: 14,
-    marginRight: 5,
-  },
-  reactionsPopup: {
-    position: "absolute",
-    bottom: height * 0.07,
-    backgroundColor: "white",
-    padding: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    flexDirection: "row",
-    justifyContent: "space-evenly",
-  },
-  reactionEmoji: {
-    fontSize: 20,
-    margin: 5,
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#ccc",
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-  },
-  input: {
-    flex: 1,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    paddingLeft: 10,
-    paddingVertical: 10,
-  },
-  sendButton: {
-    marginLeft: 10,
-    backgroundColor: "#007bff",
-    padding: 10,
-    borderRadius: 50,
-  },
-  loadingIndicator: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  messageOptions: {
-    flexDirection: "row-reverse",
-    width: width * 1,
-    backgroundColor: "white",
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    zIndex: 999,
-  },
-  option: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-  },
-  centeredView: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
-  },
-  modalView: {
-    backgroundColor: "white",
-    borderRadius: 10,
-    padding: 20,
-    width: "80%",
-    alignItems: "center",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 15,
-  },
-  editInput: {
-    width: "100%",
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 15,
-  },
-  modalButtonContainer: {
-    flexDirection: "row",
-    alignSelf: "flex-end",
-  },
-  modalButton: {
-    padding: 10,
-    borderRadius: 5,
-  },
-  footerContainer: {
-    alignItems: "center",
-    padding: 10,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    marginBottom: height * 0.03,
-  },
-  footerText: {
-    color: "#333",
-    fontSize: 18,
-    marginLeft: 10,
-  },
-  profilePicture: {
-    width: 100,
-    height: 100,
-    marginBottom: height * 0.02,
-    borderRadius: 100,
-  },
-});
 
 export default Chats;
