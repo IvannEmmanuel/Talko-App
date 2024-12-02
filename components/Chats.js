@@ -85,7 +85,7 @@ const Chats = () => {
 
       // Scroll to the bottom after setting messages
       if (flatListRef.current) {
-        flatListRef.current.scrollToEnd({ animated: true }); // Changed animated to true for a smoother effect
+        flatListRef.current.scrollToEnd({ animated: true });
       }
     });
 
@@ -96,10 +96,13 @@ const Chats = () => {
 
   // Add this useEffect to scroll to the bottom when the component mounts
   useEffect(() => {
-    if (flatListRef.current) {
-      flatListRef.current.scrollToEnd({ animated: true });
+    if (messages.length > 0 && flatListRef.current) {
+      flatListRef.current.scrollToIndex({
+        index: messages.length - 1,
+        animated: true,
+      });
     }
-  }, []);
+  }, [messages]);
 
   const handleLongPress = (messageId) => {
     const currentUser = auth.currentUser;
@@ -200,11 +203,9 @@ const Chats = () => {
 
   const handleSendMessage = async () => {
     if (newMessage.trim()) {
-      setNewMessage("");
-      Keyboard.dismiss();
-
       const currentUser = auth.currentUser;
 
+      // Add the new message to Firestore
       await addDoc(collection(db, "messages"), {
         text: newMessage,
         senderId: currentUser.email,
@@ -212,6 +213,17 @@ const Chats = () => {
         createdAt: new Date(),
         reactions: {},
       });
+
+      // Clear the input field
+      setNewMessage("");
+
+      // Dismiss the keyboard
+      Keyboard.dismiss();
+
+      // Scroll to the bottom immediately after sending a new message
+      if (flatListRef.current) {
+        flatListRef.current.scrollToEnd({ animated: true });
+      }
     }
   };
 
@@ -287,7 +299,7 @@ const Chats = () => {
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
     >
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -320,10 +332,18 @@ const Chats = () => {
           )}
           contentContainerStyle={styles.messageList}
           onContentSizeChange={() => {
-            if (flatListRef.current) {
-              flatListRef.current.scrollToEnd({ animated: true });
+            if (messages.length > 0 && flatListRef.current) {
+              flatListRef.current.scrollToIndex({
+                index: messages.length - 1,
+                animated: true,
+              });
             }
           }}
+          getItemLayout={(data, index) => ({
+            length: 100, // Replace with the actual height of each item
+            offset: 100 * index,
+            index,
+          })}
           keyboardShouldPersistTaps="always"
           style={{ flex: 1 }}
           ListHeaderComponent={renderFooter}
@@ -420,7 +440,7 @@ const styles = StyleSheet.create({
   },
   messageList: {
     paddingHorizontal: 10,
-    paddingBottom: 50,
+    paddingBottom: 20,
   },
   message: {
     marginBottom: 10,
