@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import SignUpPage from "./pages/SignUpPage";
 import Chats from "./components/Chats";
 import VisitProfile from "./components/VisitProfile";
+import FriendList from './components/FriendList';
 
 
 const Stack = createNativeStackNavigator();
@@ -24,6 +25,7 @@ export default function App() {
           <Stack.Screen name="SignUp" component={SignUpPage} />
           <Stack.Screen name="Chats" component={Chats} />
           <Stack.Screen name="VisitProfile" component={VisitProfile} />
+          <Stack.Screen name="FriendList" component={FriendList} />
         </Stack.Navigator>
       </NavigationContainer>
   );
