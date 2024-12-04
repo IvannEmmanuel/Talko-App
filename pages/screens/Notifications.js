@@ -147,24 +147,25 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   notificationCard: {
-    flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-end",
     backgroundColor: "#F9F9F9",
     borderRadius: 12,
-    padding: 15,
+    padding: 20, // Increase padding to allow more space
     marginBottom: 15,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 3.84,
     elevation: 5,
+    maxWidth: width - 40, // Ensure the width is constrained for readability
   },
   notificationContent: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-  },
+    flexWrap: "wrap",  // Allow wrapping of content to avoid overlap
+  },  
   notificationIcon: {
     width: 50,
     height: 50,
@@ -183,6 +184,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
     marginBottom: 5,
+    paddingBottom: 5,
+    lineHeight: 22, // Increase line height for better spacing
+    flexWrap: "wrap", // Allow the text to wrap if it's too long
   },
   notificationTimestamp: {
     color: "#666",
@@ -191,6 +195,7 @@ const styles = StyleSheet.create({
   actionButton: {
     backgroundColor: "#4A5ACE",
     paddingVertical: 8,
+    top: height * 0.01,
     paddingHorizontal: 15,
     borderRadius: 20,
   },

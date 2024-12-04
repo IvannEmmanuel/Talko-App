@@ -18,7 +18,7 @@ import {
   sendEmailVerification,
 } from "firebase/auth";
 import { db } from "../firebaseConfig";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 
 const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dsgmvinyo/image/upload";
@@ -171,6 +171,7 @@ const SignUpPage = ({ navigation }) => {
         gender,
         emailVerified: false,
         profilePictureURL: uploadData.secure_url, // Use URL directly from upload response
+        createdAt: serverTimestamp(), // Add createdAt timestamp
       };
 
       await setDoc(doc(db, "userInformation", user.uid), userInfo);

@@ -10,6 +10,7 @@ import {
   Image,
   Dimensions,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   doc,
   getDoc,
@@ -165,94 +166,105 @@ const WhiteUsersPage = () => {
   }, [searchQuery]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Connections</Text>
-      </View>
+    <LinearGradient colors={["#f0f4f8", "#e0e7f0"]} style={styles.container}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Connections</Text>
+        </View>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputWrapper}>
+        <View style={styles.searchContainer}>
           <Ionicons
             name="search"
             size={20}
-            color="#888"
+            color="#999"
             style={styles.searchIcon}
           />
           <TextInput
-            style={styles.searchInput}
-            placeholder="Search username"
+            style={styles.searchBar}
+            placeholder="Search username to add a friend"
             placeholderTextColor="#999"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery("")}
+              style={styles.clearButton}
+            >
+              <Ionicons name="close-circle" size={20} color="#666" />
+            </TouchableOpacity>
+          )}
         </View>
-      </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#4A5ACE" style={styles.loader} />
-      ) : (
-        <FlatList
-          data={users}
-          keyExtractor={(item, index) => index.toString()}
-          contentContainerStyle={styles.listContainer}
-          ListEmptyComponent={() => (
-            <View style={styles.emptyState}>
-              <Ionicons name="search-outline" size={64} color="#E0E0E0" />
-              <Text style={styles.emptyStateText}>
-                {searchQuery ? "No users found" : "Search for connections"}
-              </Text>
-            </View>
-          )}
-          renderItem={({ item }) => (
-            <View style={styles.userCard}>
-              <View style={styles.userInfo}>
-                <View style={styles.userAvatar}>
-                  <Image
-                    source={{ uri: item.profilePictureURL }}
-                    style={styles.profilePicture}
-                  />
-                </View>
-                <View style={styles.userDetails}>
-                  <Text style={styles.username}>{item.username}</Text>
-                  <Text style={styles.fullName}>
-                    {item.firstname} {item.lastname}
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={[
-                  styles.connectButton,
-                  checkIfFriend(item.username) && styles.connectedButton,
-                ]}
-                onPress={async () => {
-                  const isFriend = await checkIfFriend(item.username);
-                  if (!isFriend) {
-                    handleAddFriend(item.username);
-                  }
-                }}
-              >
-                <Text style={styles.connectButtonText}>
-                  {checkIfFriend(item.username) ? "Friends" : "Add Friend"}
+        {loading ? (
+          <ActivityIndicator
+            size="large"
+            color="#4A5ACE"
+            style={styles.loader}
+          />
+        ) : (
+          <FlatList
+            data={users}
+            keyExtractor={(item, index) => index.toString()}
+            contentContainerStyle={styles.listContainer}
+            ListEmptyComponent={() => (
+              <View style={styles.emptyState}>
+                <Ionicons name="search-outline" size={64} color="#E0E0E0" />
+                <Text style={styles.emptyStateText}>
+                  {searchQuery ? "No users found" : "Search for connections"}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        />
-      )}
-    </View>
+              </View>
+            )}
+            renderItem={({ item }) => (
+              <View style={styles.userCard}>
+                <View style={styles.userInfo}>
+                  <View style={styles.userAvatar}>
+                    <Image
+                      source={{ uri: item.profilePictureURL }}
+                      style={styles.profilePicture}
+                    />
+                  </View>
+                  <View style={styles.userDetails}>
+                    <Text style={styles.username}>{item.username}</Text>
+                    <Text style={styles.fullName}>
+                      {item.firstname} {item.lastname}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.connectButton,
+                    checkIfFriend(item.username) && styles.connectedButton,
+                  ]}
+                  onPress={async () => {
+                    const isFriend = await checkIfFriend(item.username);
+                    if (!isFriend) {
+                      handleAddFriend(item.username);
+                    }
+                  }}
+                >
+                  <Text style={styles.connectButtonText}>
+                    {checkIfFriend(item.username) ? "Friends" : "Add Friend"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          />
+        )}
+      </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
   },
   header: {
     paddingTop: 50,
@@ -267,44 +279,35 @@ const styles = StyleSheet.create({
     color: "#333",
     textAlign: "center",
   },
-  backButton: {
-    position: "absolute",
-    left: 20,
-    top: 50,
-    zIndex: 1,
-  },  
-  searchContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
-    marginVertical: 20,
+  addFriendButton: {
+    padding: 10,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 25,
   },
-  searchInputWrapper: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F5F5F5",
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    marginRight: 10,
+  searchContainer: {
+    width: width * 0.9,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    backgroundColor: 'white',
+    borderRadius: 25,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
   },
   searchIcon: {
-    marginRight: 10,
+    paddingHorizontal: 15,
   },
-  searchInput: {
+  searchBar: {
     flex: 1,
     height: 50,
-    color: "#333",
+    fontSize: 16,
   },
-  searchButton: {
-    backgroundColor: "#4A5ACE",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 12,
-    paddingHorizontal: 20,
-  },
-  searchButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
+  clearButton: {
+    paddingHorizontal: 15,
   },
   loader: {
     marginTop: 50,

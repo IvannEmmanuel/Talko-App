@@ -236,42 +236,20 @@ const Chats = () => {
   const handleSendMessage = async () => {
     if (newMessage.trim()) {
       const currentUser = auth.currentUser;
-
-      // Clear the input field
-      setNewMessage("");
-
-      // Dismiss the keyboard
-      Keyboard.dismiss();
-
-      // Create the new message object
-      const newMessageObj = {
+      await addDoc(collection(db, "messages"), {
         text: newMessage,
         senderId: currentUser.email,
         receiverId: friend.email,
         createdAt: new Date(),
-        reactions: {},
-      };
-
-      // Add the new message to Firestore
-      const docRef = await addDoc(collection(db, "messages"), newMessageObj);
-
-      // Add the new message to the state
-      setMessages((prevMessages) => [
-        {
-          id: docRef.id,
-          ...newMessageObj,
-          createdAt: format(newMessageObj.createdAt, "MMM dd, yyyy hh:mm a"),
-        },
-        ...prevMessages,
-      ]);
-
-      // Scroll to the top (which is now the bottom since the list is not inverted)
-      if (flatListRef.current) {
-        flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+      });
+      setNewMessage("");
+      Keyboard.dismiss();
+      if (inputRef.current) {
+        inputRef.current.clear();
       }
     }
   };
-
+  
   const renderMessageReactions = (item) => {
     const reactionCounts = {};
     Object.values(item.reactions || {}).forEach((reaction) => {
@@ -347,7 +325,7 @@ const Chats = () => {
       keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
     >
       <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.navigate("Dashboard", { screens: "ChatPage" })}        >
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <View style={styles.profileHeader}>

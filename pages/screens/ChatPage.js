@@ -98,7 +98,7 @@ const EnhancedChatPage = () => {
             <MaterialIcons 
               name="message" 
               size={24} 
-              color={item.isFriend ? "#4CAF50" : "#2196F3"} 
+              color={item.isFriend ? "#4CAF50" : "#4A5ACE"} 
             />
           </TouchableOpacity>
         </TouchableOpacity>
@@ -143,7 +143,7 @@ const EnhancedChatPage = () => {
             style={styles.addFriendButton}
             onPress={() => navigation.navigate('CallPage')}
           >
-            <Ionicons name="person-add" size={24} color="#007BFF" />
+            <Ionicons name="person-add" size={24} color="#4A5ACE" />
           </TouchableOpacity>
         </View>
 

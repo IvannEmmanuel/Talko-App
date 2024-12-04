@@ -47,7 +47,7 @@ const ProfilePage = () => {
 
   const ProfileStatCard = ({ icon, label, value }) => (
     <View style={styles.statCard}>
-      <Ionicons name={icon} size={24} color="#3498db" />
+      <Ionicons name={icon} size={24} color="#4A5ACE" />
       <Text style={styles.statLabel}>{label}</Text>
       <Text style={styles.statValue}>{value}</Text>
     </View>
@@ -77,7 +77,7 @@ const ProfilePage = () => {
         showsVerticalScrollIndicator={false}
       >
         <LinearGradient
-          colors={['#3498db', '#2980b9']}
+          colors={['#4A5ACE', '#4A5ACE']}
           style={styles.headerBackground}
         >
           <View style={styles.profileImageContainer}>
@@ -128,17 +128,17 @@ const ProfilePage = () => {
         <View style={styles.detailsContainer}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
           <View style={styles.detailItem}>
-            <Ionicons name="mail-outline" size={20} color="#3498db" />
+            <Ionicons name="mail-outline" size={20} color="#4A5ACE" />
             <Text style={styles.detailLabel}>Email</Text>
             <Text style={styles.detailValue}>{userData.email}</Text>
           </View>
           <View style={styles.detailItem}>
-            <Ionicons name="calendar-outline" size={20} color="#3498db" />
+            <Ionicons name="calendar-outline" size={20} color="#4A5ACE" />
             <Text style={styles.detailLabel}>Birthday</Text>
             <Text style={styles.detailValue}>{userData.birthday}</Text>
           </View>
           <View style={styles.detailItem}>
-            <Ionicons name="transgender-outline" size={20} color="#3498db" />
+            <Ionicons name="transgender-outline" size={20} color="#4A5ACE" />
             <Text style={styles.detailLabel}>Gender</Text>
             <Text style={styles.detailValue}>{userData.gender}</Text>
           </View>
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#3498db',
+    backgroundColor: '#4A5ACE',
     borderRadius: 20,
     padding: 5,
     borderWidth: 2,
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   },
   friendsButton: {
     flexDirection: 'row',
-    backgroundColor: '#3498db',
+    backgroundColor: '#4A5ACE',
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 10,

@@ -92,7 +92,7 @@ const FriendsList = () => {
           <Ionicons 
             name="chatbubble-ellipses-outline" 
             size={24} 
-            color="#007bff" 
+            color="#4A5ACE" 
           />
         </View>
       </TouchableOpacity>
@@ -104,7 +104,7 @@ const FriendsList = () => {
       <StatusBar barStyle="light-content" />
       
       <LinearGradient
-        colors={['#007bff', '#00b4db']}
+        colors={['#4A5ACE', '#4A5ACE']}
         style={styles.headerGradient}
       >
         <TouchableOpacity

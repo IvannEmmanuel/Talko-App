@@ -34,7 +34,7 @@ const Dashboard = () => {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: "#3498DB",
+        tabBarActiveTintColor: "#4A5ACE",
         tabBarInactiveTintColor: "black",
         tabBarStyle: { paddingBottom: 10, height: 60 },
       })}
