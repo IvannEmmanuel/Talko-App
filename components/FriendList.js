@@ -176,8 +176,9 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    left: 15,
-    top: 10,
+    left: -height * 0,
+    top: height * 0.05,
+    marginLeft: height * 0.02,
   },
   talkoPic: {
     height: height * 0.1,

@@ -22,6 +22,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../firebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 
 const { height, width } = Dimensions.get("window");
 
@@ -29,6 +30,7 @@ const WhiteUsersPage = () => {
   const [users, setUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigation = useNavigation();
 
   const fetchUsers = async () => {
     if (searchQuery.trim() === "") {
@@ -165,6 +167,12 @@ const WhiteUsersPage = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Connections</Text>
       </View>
 
@@ -259,6 +267,12 @@ const styles = StyleSheet.create({
     color: "#333",
     textAlign: "center",
   },
+  backButton: {
+    position: "absolute",
+    left: 20,
+    top: 50,
+    zIndex: 1,
+  },  
   searchContainer: {
     flexDirection: "row",
     paddingHorizontal: 20,
@@ -371,7 +385,7 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     borderWidth: 2,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
   },
 });
 

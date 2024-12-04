@@ -6,10 +6,14 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../../firebaseConfig";
 import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+
+const { height, width } = Dimensions.get("window");
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
@@ -51,36 +55,50 @@ const Notifications = () => {
     }
   };
 
+  const NotificationItem = ({ item }) => (
+    <View style={styles.notificationCard}>
+      <View style={styles.notificationContent}>
+        <View style={styles.notificationIcon}>
+          <Ionicons name="notifications-outline" size={24} color="#4A5ACE" />
+        </View>
+        <View style={styles.notificationDetails}>
+          <Text style={styles.notificationMessage} numberOfLines={2}>
+            {item.message}
+          </Text>
+          <Text style={styles.notificationTimestamp}>
+            {new Date(item.timestamp.seconds * 1000).toLocaleString()}
+          </Text>
+        </View>
+      </View>
+      <TouchableOpacity
+        style={styles.actionButton}
+        onPress={() => handleViewProfile(item.message)}
+      >
+        <Text style={styles.actionButtonText}>View Profile</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Notifications</Text>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Notifications</Text>
+      </View>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3498db" />
-        </View>
-      ) : notifications.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No notifications yet!</Text>
-        </View>
+        <ActivityIndicator size="large" color="#4A5ACE" style={styles.loader} />
       ) : (
         <FlatList
           data={notifications}
           keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) => (
-            <View style={styles.notificationItem}>
-              <Text style={styles.notificationMessage}>{item.message}</Text>
-              <Text style={styles.notificationTimestamp}>
-                {new Date(item.timestamp.seconds * 1000).toLocaleString()}
-              </Text>
-              <TouchableOpacity
-                style={styles.viewProfileButtonContainer}
-                onPress={() => handleViewProfile(item.message)}
-              >
-                <Text style={styles.viewProfileButton}>View Profile</Text>
-              </TouchableOpacity>
+          contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyState}>
+              <Ionicons name="notifications-off-outline" size={64} color="#E0E0E0" />
+              <Text style={styles.emptyStateText}>No notifications yet</Text>
             </View>
           )}
+          renderItem={({ item }) => <NotificationItem item={item} />}
         />
       )}
     </View>
@@ -90,63 +108,96 @@ const Notifications = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
-    padding: 20,
+    backgroundColor: "#FFFFFF",
   },
   header: {
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  headerTitle: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#2c3e50",
-    marginBottom: 20,
+    color: "#333",
     textAlign: "center",
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  backButton: {
+    position: "absolute",
+    left: 20,
+    top: 50,
+    zIndex: 1,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  loader: {
+    marginTop: 50,
   },
-  emptyText: {
+  listContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 100,
+  },
+  emptyStateText: {
+    color: "#999",
     fontSize: 18,
-    color: "#7f8c8d",
-    textAlign: "center",
+    marginTop: 20,
   },
-  notificationItem: {
-    backgroundColor: "#ffffff",
+  notificationCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#F9F9F9",
+    borderRadius: 12,
     padding: 15,
-    borderRadius: 10,
     marginBottom: 15,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  notificationContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  notificationIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#F0F0F0",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15,
+  },
+  notificationDetails: {
+    flex: 1,
+    justifyContent: "center",
   },
   notificationMessage: {
     fontSize: 16,
-    color: "#2c3e50",
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 5,
   },
   notificationTimestamp: {
+    color: "#666",
     fontSize: 12,
-    color: "#95a5a6",
-    marginBottom: 10,
   },
-  viewProfileButtonContainer: {
-    alignSelf: "flex-start",
-    padding: 8,
-    backgroundColor: "#3498db",
-    borderRadius: 5,
+  actionButton: {
+    backgroundColor: "#4A5ACE",
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
   },
-  viewProfileButton: {
-    fontSize: 14,
-    color: "#ffffff",
+  actionButtonText: {
+    color: "#fff",
     fontWeight: "bold",
-    textAlign: "center",
+    fontSize: 14,
   },
 });
 

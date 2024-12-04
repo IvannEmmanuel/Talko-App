@@ -8,6 +8,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  SafeAreaView, 
 } from "react-native";
 import { doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../../firebaseConfig";
@@ -94,7 +95,7 @@ const ProfilePage = () => {
             )}
             <TouchableOpacity 
               style={styles.editProfileButton}
-              onPress={() => navigation.navigate('EditProfile')}
+              // onPress={() => navigation.navigate('EditProfile')}
             >
               <Ionicons name="create-outline" size={20} color="white" />
             </TouchableOpacity>
@@ -103,7 +104,7 @@ const ProfilePage = () => {
           <Text style={styles.profileName}>
             {userData.firstname} {userData.lastname}
           </Text>
-          <Text style={styles.profileUsername}>@{userData.username}</Text>
+          <Text style={styles.profileUsername}>{userData.username}</Text>
         </LinearGradient>
 
         <View style={styles.statsContainer}>

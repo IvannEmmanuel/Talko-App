@@ -5,12 +5,10 @@ import { Ionicons } from "@expo/vector-icons";
 
 // Screens
 import ChatPage from './screens/ChatPage';
-import CallPage from './screens/CallPage';
 import ProfilePage from './screens/ProfilePage';
 import Notifications from './screens/Notifications';
 
 const chatName = 'Chat';
-const callName = 'Call';
 const profileName = 'Profile';
 const notificationsName = 'Notifications';
 
@@ -28,8 +26,6 @@ const Dashboard = () => {
 
           if (rn === chatName) {
             iconName = focused ? 'chatbubble' : 'chatbubble-outline';
-          } else if (rn === callName) {
-            iconName = focused ? 'call' : 'call-outline';
           } else if (rn === profileName) {
             iconName = focused ? 'person' : 'person-outline';
           } else if (rn === notificationsName) {
@@ -44,9 +40,8 @@ const Dashboard = () => {
       })}
     >
       <Tab.Screen name={chatName} component={ChatPage} />
-      <Tab.Screen name={callName} component={CallPage} />
-      <Tab.Screen name={profileName} component={ProfilePage} />
       <Tab.Screen name={notificationsName} component={Notifications}/>
+      <Tab.Screen name={profileName} component={ProfilePage} />
     </Tab.Navigator>
   );
 };

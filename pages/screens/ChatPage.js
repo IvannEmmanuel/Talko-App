@@ -118,7 +118,7 @@ const EnhancedChatPage = () => {
       </Text>
       <TouchableOpacity 
         style={styles.addFriendsButton}
-        onPress={() => navigation.navigate('AddFriends')}
+        onPress={() => navigation.navigate('CallPage')}
       >
         <Text style={styles.addFriendsButtonText}>Add Friends</Text>
       </TouchableOpacity>
@@ -141,7 +141,7 @@ const EnhancedChatPage = () => {
           />
           <TouchableOpacity 
             style={styles.addFriendButton}
-            onPress={() => navigation.navigate('AddFriends')}
+            onPress={() => navigation.navigate('CallPage')}
           >
             <Ionicons name="person-add" size={24} color="#007BFF" />
           </TouchableOpacity>
